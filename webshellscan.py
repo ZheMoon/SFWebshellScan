@@ -6,12 +6,26 @@ import json
 import requests
 import time
 import datetime
+import shutil
 
 #collectFile
-def collectFile():
+def collectFile(path):
+    filetype = ['php', 'phtml', 'inc', 'php3', 'php4', 'php5', 'war', 'jsp', 'jspx', 'asp', 'aspx', 'cer', 'cdx', 'asa', 'ashx', 'asmx', 'cfm']
+    print("开始收集扫描文件")
+    os.system('rm -rf SFtmp && mkdir SFtmp')
+    os.system('rm -rf SFWebshell.zip')
+    for root, dirs, files in os.walk(path):
+        for filename in files:
+            if(os.path.splitext(filename)[1][1:] in filetype):
+                shutil.copyfile(os.path.join(root, filename), './SFtmp/'+root.replace('/', '^')+filename)
+    print("开始打包文件内容")
+    os.system('zip SFWebshell.zip ./SFtmp/*')
+    print("打包成功")
+    '''
     collectFileCommand = 'find . -regex ".*\(php\)"|xargs -i cp {} ./tmp/'
     os.system(collectFileCommand)
     os.system('zip SFwebshell.zip ./tmp/*')
+    '''
 #sendfile
 def sendFile():
     sendFileCommand = 'curl https://scanner.baidu.com/enqueue -F archive=@SFwebshell.zip'
