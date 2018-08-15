@@ -7,6 +7,17 @@ import requests
 import time
 import datetime
 import shutil
+import uuid
+
+class Scanfile(object):
+    
+    def __init__(self, name, path, token, status=None):
+        self.name = name
+        self.path = path
+        self.token = token
+        self.status = status
+
+scanfiles = {}
 
 #collectFile
 def collectFile(path):
@@ -16,32 +27,35 @@ def collectFile(path):
     os.system('rm -rf SFWebshell.zip')
     for root, dirs, files in os.walk(path):
         for filename in files:
-            if(os.path.splitext(filename)[1][1:] in filetype):
-                shutil.copyfile(os.path.join(root, filename), './SFtmp/'+root.replace('/', '^')+filename)
+            filext = os.path.splitext(filename)[1]
+            if(filext[1:] in filetype):
+                token = str(uuid.uuid4())
+                tmpfile = Scanfile(filename, root, token)
+                scanfiles[token] = tmpfile
+                shutil.copyfile(os.path.join(root, filename), './SFtmp/' + token + filext)
     print("开始打包文件内容")
     os.system('zip SFWebshell.zip ./SFtmp/*')
     print("打包成功")
-    '''
-    collectFileCommand = 'find . -regex ".*\(php\)"|xargs -i cp {} ./tmp/'
-    os.system(collectFileCommand)
-    os.system('zip SFwebshell.zip ./tmp/*')
-    '''
+
 #sendfile
 def sendFile():
-    sendFileCommand = 'curl https://scanner.baidu.com/enqueue -F archive=@SFwebshell.zip'
+    print("开始分析文件")
+    time.sleep(2)
+    sendFileCommand = 'curl https://scanner.baidu.com/enqueue -F archive=@SFWebshell.zip'
     r = os.popen(sendFileCommand).read()
     url = json.loads(r)['url']
     return url
+
 #AnalysisResult
 def analysisData(url):
+    print("分析文件准备工作结束")
     start_time = datetime.datetime.now()
-    time.sleep(10)
+    time.sleep(15)
     r = requests.get(url).text[:-1]
-    print("test_url:"+url)
     json_r = json.loads(r)[0]
     while(int(json_r['total']) != int(json_r['scanned'])):
         time.sleep(5)
-        print('----scanned:'+str(json_r['scanned']))
+        print("已经扫描: %.2f%%" % (json_r['scanned'] * 1.00 / json_r['total']))
         r = requests.get(url).text[:-1]
         json_r = json.loads(r)[0]
     duration = (datetime.datetime.now() - datetime.datetime.now()).seconds
@@ -50,11 +64,11 @@ def analysisData(url):
     print("Webshell is :")
     for item in json_r['data']:
         if(item['descr'] is not None):
-            print(item['path'])
+            token = item['path'][item['path'].index('/')+1:item['path'].index('.')]
+            scanfiles[token].status = item['descr']
     total = json_r['total']
     detected = json_r['detected']
-    result = json_r['data']
-    reporterData(start_time, duration, total, detected, result)
+    reporterData(start_time, duration, total, detected, scanfiles)
     
 #Reporter
 def reporterData(start_time, duration, total, detected, result):
@@ -90,14 +104,20 @@ def reporterData(start_time, duration, total, detected, result):
 </html>
     '''
     scan_result = ""
-    for item in result:
-        if(item['descr'] is not None):
-            scan_result += "<tr><td>{}</td><td>{}</td></tr>".format(item['path'], item['descr'])
+    for item in result.values():
+        if(item.status is not None):
+            scan_result += "<tr><td>{}</td><td>{}</td></tr>".format(item.path+item.name, item.status)
     reporter = reporter.replace("{{ start_time }}", str(start_time)).replace("{{ duration }}", str(duration)).replace("{{ total }}", str(total)).replace("{{ detected }}", str(detected)).replace("{{ scan_result }}", scan_result)
     with open('SFWebshell.html', 'w') as f:
         f.write(reporter)
     print('WebShell scan finished')
 
+#Traces of cleaning
+def traceClean():
+    print("清理过程文件")
+    os.system('rm -rf SFtmp SFWebshell.zip')
+    print("清理结束")
+
 collectFile()
 analysisData(sendFile())
-os.system('rm -rf SFwebshell.zip')
+traceClean()
