@@ -58,7 +58,7 @@ def analysisData(url):
         print("已经扫描: %.2f%%" % (json_r['scanned'] * 1.00 / json_r['total']))
         r = requests.get(url).text[:-1]
         json_r = json.loads(r)[0]
-    duration = (datetime.datetime.now() - datetime.datetime.now()).seconds
+    duration = (datetime.datetime.now() - start_time).seconds
     print("total:"+str(json_r['total']))
     print("detected:"+str(json_r['detected']))
     print("Webshell is :")
