@@ -8,6 +8,9 @@ import time
 import datetime
 import shutil
 import uuid
+import argparse
+import sys
+import base64
 
 class Scanfile(object):
     
@@ -48,6 +51,7 @@ def sendFile():
 
 #AnalysisResult
 def analysisData(url):
+    suspiciousFiles = []
     print("分析文件准备工作结束")
     start_time = datetime.datetime.now()
     time.sleep(15)
@@ -55,9 +59,10 @@ def analysisData(url):
     json_r = json.loads(r)[0]
     while(int(json_r['total']) != int(json_r['scanned'])):
         time.sleep(5)
-        print("已经扫描: %.2f%%" % (json_r['scanned'] * 1.00 / json_r['total']))
+        print("已经扫描: %.2f%%" % ((json_r['scanned'] * 1.00 / json_r['total'])*100))
         r = requests.get(url).text[:-1]
         json_r = json.loads(r)[0]
+    print("已经扫描: %.2f%%" % ((json_r['scanned'] * 1.00 / json_r['total'])*100))
     duration = (datetime.datetime.now() - start_time).seconds
     print("total:"+str(json_r['total']))
     print("detected:"+str(json_r['detected']))
@@ -66,9 +71,11 @@ def analysisData(url):
         if(item['descr'] is not None):
             token = item['path'][item['path'].index('/')+1:item['path'].index('.')]
             scanfiles[token].status = item['descr']
+            suspiciousFiles.append(scanfiles[token])
     total = json_r['total']
     detected = json_r['detected']
     reporterData(start_time, duration, total, detected, scanfiles)
+    return suspiciousFiles
     
 #Reporter
 def reporterData(start_time, duration, total, detected, result):
@@ -115,9 +122,34 @@ def reporterData(start_time, duration, total, detected, result):
 #Traces of cleaning
 def traceClean():
     print("清理过程文件")
-    os.system('rm -rf SFtmp SFWebshell.zip')
+    #os.system('rm -rf SFtmp SFWebshell.zip')
     print("清理结束")
 
-collectFile()
-analysisData(sendFile())
-traceClean()
+#Files encoding
+def fileEncoding():
+    pass
+
+#SFWebshell scanner menu
+def SFWmenu():
+    parser = argparse.ArgumentParser(prog="SFWebshell", description="This is SFWebshell Scanner")
+    parser.add_argument("-s", help="Scan spedified directory", type=str)
+    parser.add_argument("-v", help="show version", type=str)
+    if(len(sys.argv) < 2):
+        parser.print_help()
+        exit()  
+    else:
+        args = parser.parse_args()
+    return args
+    
+
+#File Quarantine
+def fileQuarantine(suspiciousFiles):
+    for file in suspiciousFiles:
+        with open(file, 'rw', encoding='utf-8') as f:
+            content = f.read()
+
+args = SFWmenu()
+if(args.s):
+    collectFile(args.s)
+    analysisData(sendFile())
+    traceClean()
